@@ -1,0 +1,18 @@
+{
+  "id": "node-hello-marathon",
+  "cpus": 0.1,
+  "mem": 256,
+  "instances": 1,
+  "container": {
+    "docker": {
+      "image": "localhost:5000/node-hello-marathon",
+      "network": "BRIDGE",
+      "forcePullImage": true
+    },
+    "type": "DOCKER"
+  },
+  "labels": {
+    "HAPROXY_GROUP":"external",
+    "HAPROXY_0_VHOST":"service.mesosphere.com"
+  }
+}

@@ -1,0 +1,90 @@
+version: "2"
+
+services:
+  zk:
+    image: bobrik/zookeeper
+    network_mode: host
+    environment:
+      ZK_CONFIG: tickTime=2000,initLimit=10,syncLimit=5,maxClientCnxns=128,forceSync=no,clientPort=2181
+      ZK_ID: 1
+
+  master:
+    image: mesosphere/mesos-master:0.28.0-2.0.16.ubuntu1404
+    network_mode: host
+    environment:
+      MESOS_ZK: zk://127.0.0.1:2181/mesos
+      MESOS_QUORUM: 1
+      MESOS_CLUSTER: docker-compose
+      MESOS_REGISTRY: replicated_log # default is in_memory for some reason
+    depends_on:
+      - zk
+
+  slave-one:
+    image: mesosphere/mesos-slave:0.28.0-2.0.16.ubuntu1404
+    network_mode: host
+    pid: host
+    environment:
+      MESOS_MASTER: zk://127.0.0.1:2181/mesos
+      MESOS_CONTAINERIZERS: docker,mesos
+      # MESOS_HOSTNAME: SLAVE_IP_GOES_HERE
+      MESOS_PORT: 5051
+      MESOS_RESOURCES: ports(*):[11000-11999]
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+      - /usr/local/bin/docker:/usr/bin/docker
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - zk
+
+  slave-two:
+    image: mesosphere/mesos-slave:0.28.0-2.0.16.ubuntu1404
+    network_mode: host
+    pid: host
+    environment:
+      MESOS_MASTER: zk://127.0.0.1:2181/mesos
+      MESOS_CONTAINERIZERS: docker,mesos
+      # MESOS_HOSTNAME: SLAVE_IP_GOES_HERE
+      MESOS_PORT: 5052
+      MESOS_RESOURCES: ports(*):[12000-12999]
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup
+      - /usr/local/bin/docker:/usr/bin/docker
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - zk
+
+  marathon:
+    image: mesoscloud/marathon:1.1.1-centos-7
+    network_mode: host
+    environment:
+      # MARATHON_HOSTNAME=ip.address \
+      # MARATHON_HTTPS_ADDRESS=ip.address \
+      # MARATHON_HTTP_ADDRESS=ip.address \
+      # MARATHON_ZK=zk://node-1:2181,node-2:2181,node-3:2181/marathon \
+
+      MARATHON_MASTER: zk://127.0.0.1:2181/mesos
+    depends_on:
+      - zk
+
+  # marathon-lb:
+  #   image: mesosphere/marathon-lb
+  #   network_mode: host
+  #   environment:
+  #     - PORTS=9090
+  #   command: poll
+  #   ports:
+  #     - "9090:9090"
+
+
+  registry:
+    image: registry
+    environment:
+      - STORAGE_PATH=/registry
+    volumes:
+      - data:/registry
+    ports:
+      - "5000:5000"
+
+volumes:
+  data:
+    external: true
